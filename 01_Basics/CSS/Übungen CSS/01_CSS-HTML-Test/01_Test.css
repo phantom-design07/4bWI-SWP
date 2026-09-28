@@ -1,0 +1,19 @@
+.heading {
+  margin: 0px;
+  border-style: solid;
+  background-color: aqua;
+  padding-top: 20px;
+  padding-left: 20px;
+  position: relative;
+  width: 460px;
+}
+
+#brownbox {
+  background-color: brown;
+  width: 100px;
+  height: 100px;
+  position: absolute;
+  top: 50px;
+  right: 0px;
+  margin-top: 10px;
+}
