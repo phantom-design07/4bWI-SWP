@@ -1,7 +1,7 @@
 .heading {
   margin: 0px;
   border-style: solid;
-  background-color: aqua;
+  background-color: rgb(30, 160, 203);
   padding-top: 20px;
   padding-left: 20px;
   position: relative;
@@ -9,11 +9,11 @@
 }
 
 #brownbox {
-  background-color: brown;
+  background-color: #8b4513;
   width: 100px;
   height: 100px;
   position: absolute;
   top: 50px;
   right: 0px;
-  margin-top: 10px;
+  margin-left: 0px;
 }
