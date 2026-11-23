@@ -2,13 +2,12 @@ import { useEffect, useState, type FormEvent } from 'react'
 import {
   addDoc,
   collection,
-  deleteDoc,
   doc,
   onSnapshot,
   orderBy,
   query,
-  updateDoc,
   type CollectionReference,
+  writeBatch,
 } from 'firebase/firestore'
 import { db } from '../utils/firebase'
 import './App.css'
@@ -16,6 +15,7 @@ import './App.css'
 type StudentRecord = {
   name: string
   participates: boolean
+  assignedTo?: string | null
 }
 
 type Student = StudentRecord & {
@@ -25,15 +25,45 @@ type Student = StudentRecord & {
 const studentCollection = collection(db, 'students') as CollectionReference<StudentRecord>
 const currentYear = new Date().getFullYear()
 
+function drawPartners(studentIds: string[]) {
+  const shuffledIds = [...studentIds]
+  for (let index = shuffledIds.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1))
+    ;[shuffledIds[index], shuffledIds[swapIndex]] = [shuffledIds[swapIndex], shuffledIds[index]]
+  }
+
+  const offset = Math.floor(Math.random() * (shuffledIds.length - 1)) + 1
+  return new Map(
+    shuffledIds.map((studentId, index) => [
+      studentId,
+      shuffledIds[(index + offset) % shuffledIds.length],
+    ]),
+  )
+}
+
 function App() {
   const [students, setStudents] = useState<Student[]>([])
   const [studentName, setStudentName] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isAdding, setIsAdding] = useState(false)
-  const [busyStudentIds, setBusyStudentIds] = useState<string[]>([])
+  const [isSavingRoster, setIsSavingRoster] = useState(false)
+  const [isDrawing, setIsDrawing] = useState(false)
   const [error, setError] = useState('')
 
   const participants = students.filter((student) => student.participates)
+  const participantIds = new Set(participants.map((student) => student.id))
+  const assignedRecipients = participants.map((student) => student.assignedTo)
+  const hasCurrentDraw =
+    participants.length >= 2 &&
+    participants.every(
+      (student) =>
+        student.assignedTo !== null &&
+        student.assignedTo !== undefined &&
+        student.assignedTo !== student.id &&
+        participantIds.has(student.assignedTo),
+    ) &&
+    new Set(assignedRecipients).size === participants.length
+  const studentsById = new Map(students.map((student) => [student.id, student]))
 
   useEffect(() => {
     const studentsQuery = query(studentCollection, orderBy('name'))
@@ -81,31 +111,75 @@ function App() {
 
   async function toggleParticipation(student: Student) {
     setError('')
-    setBusyStudentIds((current) => [...current, student.id])
+    setIsSavingRoster(true)
     try {
-      await updateDoc(doc(studentCollection, student.id), {
-        participates: !student.participates,
+      const batch = writeBatch(db)
+      students.forEach((currentStudent) => {
+        batch.update(doc(studentCollection, currentStudent.id), {
+          participates:
+            currentStudent.id === student.id
+              ? !student.participates
+              : currentStudent.participates,
+          assignedTo: null,
+        })
       })
+      await batch.commit()
     } catch (updateError) {
       setError(
         `Die Auswahl für ${student.name} konnte nicht gespeichert werden: ${updateError instanceof Error ? updateError.message : 'Unbekannter Fehler'}`,
       )
     } finally {
-      setBusyStudentIds((current) => current.filter((id) => id !== student.id))
+      setIsSavingRoster(false)
     }
   }
 
   async function removeStudent(student: Student) {
     setError('')
-    setBusyStudentIds((current) => [...current, student.id])
+    setIsSavingRoster(true)
     try {
-      await deleteDoc(doc(studentCollection, student.id))
+      const batch = writeBatch(db)
+      students
+        .filter((currentStudent) => currentStudent.id !== student.id)
+        .forEach((currentStudent) => {
+          batch.update(doc(studentCollection, currentStudent.id), { assignedTo: null })
+        })
+      batch.delete(doc(studentCollection, student.id))
+      await batch.commit()
     } catch (deleteError) {
       setError(
         `${student.name} konnte nicht entfernt werden: ${deleteError instanceof Error ? deleteError.message : 'Unbekannter Fehler'}`,
       )
     } finally {
-      setBusyStudentIds((current) => current.filter((id) => id !== student.id))
+      setIsSavingRoster(false)
+    }
+  }
+
+  async function handleDraw() {
+    if (participants.length < 2 || isDrawing || isSavingRoster) return
+    if (
+      hasCurrentDraw &&
+      !window.confirm('Möchtest du die bestehende Wichtel-Zuteilung wirklich neu auslosen?')
+    ) {
+      return
+    }
+
+    setError('')
+    setIsDrawing(true)
+    try {
+      const assignments = drawPartners(participants.map((student) => student.id))
+      const batch = writeBatch(db)
+      students.forEach((student) => {
+        batch.update(doc(studentCollection, student.id), {
+          assignedTo: assignments.get(student.id) ?? null,
+        })
+      })
+      await batch.commit()
+    } catch (drawError) {
+      setError(
+        `Die Wichtelpartner konnten nicht zugeteilt werden: ${drawError instanceof Error ? drawError.message : 'Unbekannter Fehler'}`,
+      )
+    } finally {
+      setIsDrawing(false)
     }
   }
 
@@ -175,14 +249,13 @@ function App() {
               </div>
             ) : (
               students.map((student, index) => {
-                const isBusy = busyStudentIds.includes(student.id)
                 return (
                   <div className={`student-row${student.participates ? ' is-selected' : ''}`} key={student.id}>
                     <label className="student-choice">
                       <input
                         type="checkbox"
                         checked={student.participates}
-                        disabled={isBusy}
+                        disabled={isSavingRoster || isDrawing}
                         onChange={() => void toggleParticipation(student)}
                       />
                       <span className={`student-avatar avatar-${index % 5}`} aria-hidden="true">
@@ -190,7 +263,7 @@ function App() {
                       </span>
                       <span className="student-name">{student.name}</span>
                     </label>
-                    {isBusy ? (
+                    {isSavingRoster || isDrawing ? (
                       <span className="saving-indicator">Speichert …</span>
                     ) : (
                       <button
@@ -261,12 +334,56 @@ function App() {
               </div>
             )}
           </div>
+          <button
+            type="button"
+            className="draw-button"
+            disabled={isLoading || participants.length < 2 || isSavingRoster || isDrawing}
+            onClick={() => void handleDraw()}
+          >
+            <span aria-hidden="true">{hasCurrentDraw ? '↻' : '✦'}</span>
+            {isDrawing
+              ? 'Wichtelpartner werden ausgelost …'
+              : hasCurrentDraw
+                ? 'Neu auslosen'
+                : 'Wichtelpartner auslosen'}
+          </button>
+          <p className="draw-hint">
+            {participants.length < 2
+              ? 'Wähle mindestens zwei Personen aus.'
+              : hasCurrentDraw
+                ? 'Die aktuelle Zuteilung ist gespeichert.'
+                : 'Jede Person bekommt genau eine andere Person zugelost.'}
+          </p>
           <div className="summary-footer">
             <span className="footer-sparkle" aria-hidden="true">✳</span>
             <span>Deine Auswahl wird automatisch gespeichert.</span>
           </div>
         </aside>
       </section>
+
+      {hasCurrentDraw && (
+        <section className="draw-results" aria-labelledby="draw-results-heading">
+          <div className="draw-results-heading">
+            <div>
+              <p className="section-kicker">DIE ZUTEILUNG</p>
+              <h2 id="draw-results-heading">Die Wichtelpartner stehen fest!</h2>
+            </div>
+            <span className="draw-complete"><span /> Ziehung abgeschlossen</span>
+          </div>
+          <div className="draw-results-grid">
+            {participants.map((student) => {
+              const recipientName = studentsById.get(student.assignedTo ?? '')?.name ?? 'Unbekannt'
+              return (
+                <div className="draw-result-row" key={student.id}>
+                  <span className="draw-person">{student.name}</span>
+                  <span className="draw-arrow" aria-label="beschenkt">→</span>
+                  <span className="draw-person recipient">{recipientName}</span>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       <footer className="page-footer">
         <span>Mit einer Prise Vorfreude gemacht <span aria-hidden="true">♥</span></span>

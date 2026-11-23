@@ -646,6 +646,128 @@
   font-size: 9px;
 }
 
+.draw-button {
+  display: inline-flex;
+  min-height: 43px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 18px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--green);
+  color: white;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.draw-button:hover:not(:disabled) {
+  background: var(--green-dark);
+  transform: translateY(-1px);
+}
+
+.draw-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.draw-button > span {
+  font-size: 14px;
+}
+
+.draw-hint {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: center;
+}
+
+.draw-results {
+  margin-top: 22px;
+  padding: 26px 30px 28px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  box-shadow: 0 8px 26px #30241d08;
+}
+
+.draw-results-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.draw-results-heading .section-kicker {
+  margin-bottom: 5px;
+}
+
+.draw-results-heading h2 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 23px;
+  letter-spacing: -0.5px;
+}
+
+.draw-complete {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  color: var(--green);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.draw-complete > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #5e8a56;
+}
+
+.draw-results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
+  gap: 9px;
+}
+
+.draw-result-row {
+  display: grid;
+  min-height: 49px;
+  grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fffefa;
+}
+
+.draw-person {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.draw-person.recipient {
+  color: var(--green);
+}
+
+.draw-arrow {
+  color: var(--gold);
+  font-size: 15px;
+  text-align: center;
+}
+
 .footer-sparkle {
   color: #b48b44;
   font-size: 13px;
@@ -764,6 +886,10 @@
   .participant-preview {
     min-height: 58px;
   }
+
+  .draw-results {
+    padding: 23px 20px;
+  }
 }
 
 @media (max-width: 420px) {
@@ -822,6 +948,20 @@
   .page-footer {
     gap: 12px;
     font-size: 8px;
+  }
+
+  .draw-results {
+    padding-inline: 16px;
+  }
+
+  .draw-results-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .draw-results-heading h2 {
+    font-size: 21px;
   }
 }
 
